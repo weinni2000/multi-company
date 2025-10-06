@@ -16,6 +16,7 @@ class TestResCompanySearchView(TransactionCase):
                 "vat": "BE123456789",
                 "email": "info@alpha.com",
                 "phone": "0123456789",
+                "country_id": cls.env.ref("base.be").id,
             }
         )
         cls.company_beta = cls.Company.create(
@@ -24,6 +25,7 @@ class TestResCompanySearchView(TransactionCase):
                 "vat": "BE987654321",
                 "email": "contact@beta.com",
                 "phone": "0470123456",
+                "country_id": cls.env.ref("base.fr").id,
             }
         )
 
@@ -47,6 +49,15 @@ class TestResCompanySearchView(TransactionCase):
             self.fail(f"No <filter name='{filter_name}'> found in search view.")
         domain = node[0].get("domain")
         return safe_eval(domain or "[]")
+
+    def _get_filter_context(self, filter_name):
+        """Helper: evaluate context for a <filter> node."""
+        arch = etree.fromstring(self.view.arch_db)
+        node = arch.xpath(f"//filter[@name='{filter_name}']")
+        if not node:
+            self.fail(f"No <filter name='{filter_name}'> found in search view.")
+        ctx = node[0].get("context")
+        return safe_eval(ctx or "{}")
 
     # ---------- Tests ----------
 
@@ -78,3 +89,46 @@ class TestResCompanySearchView(TransactionCase):
         result = self.Company.search(domain)
         self.assertIn(self.company_beta, result)
         self.assertNotIn(self.company_alpha, result)
+
+    def test_group_by_country_filter(self):
+        """Validate that the 'Group by Country' filter applies correct context."""
+        ctx = self._get_filter_context("group_country")
+        self.assertIn("group_by", ctx)
+        self.assertEqual(ctx["group_by"], "country_id")
+
+        groups = self.Company.with_context(**ctx)._read_group(
+            domain=[], groupby=["country_id"], aggregates=["__count"]
+        )
+        # Extract the country record (if present) for each group
+        grouped_countries = {g[0] for g in groups}
+
+        self.assertSetEqual(
+            grouped_countries,
+            {
+                self.env.ref("base.be"),
+                self.env.ref("base.fr"),
+                self.env["res.country"],
+            },
+        )
+
+    def test_set_country(self):
+        self.company_beta.partner_id.country_id = self.env.ref("base.be")
+        self.assertEqual(self.company_beta.country_id, self.env.ref("base.be"))
+
+        ctx = self._get_filter_context("group_country")
+        self.assertIn("group_by", ctx)
+        self.assertEqual(ctx["group_by"], "country_id")
+
+        groups = self.Company.with_context(**ctx)._read_group(
+            domain=[], groupby=["country_id"], aggregates=["__count"]
+        )
+        # Extract the country record (if present) for each group
+        grouped_countries = {g[0] for g in groups}
+
+        self.assertSetEqual(
+            grouped_countries,
+            {
+                self.env.ref("base.be"),
+                self.env["res.country"],
+            },
+        )
