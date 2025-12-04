@@ -1,9 +1,7 @@
 # Copyright 2024 Camptocamp SA
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
-from odoo.tests import common
-from odoo.tests.common import Form
-
+from odoo.tests import common, Form
 from odoo.addons.base.tests.common import DISABLED_MAIL_CONTEXT
 
 
@@ -25,7 +23,7 @@ class TestPartnerMultiCompany(common.TransactionCase):
             }
         )
         cls.product = cls.env["product.product"].create(
-            {"name": "test_product", "type": "product", "invoice_policy": "delivery"}
+            {"name": "test_product", "type": "consu", "invoice_policy": "delivery", "is_storable": True}
         )
         cls.env["stock.quant"].with_context(inventory_mode=True).create(
             {
@@ -53,7 +51,7 @@ class TestPartnerMultiCompany(common.TransactionCase):
         stock_location = self.warehouse_1.lot_stock_id
         self.assertEqual(self.order.picking_ids.location_id, stock_location)
         # Process picking
-        self.order.picking_ids.move_ids_without_package.quantity_done = 1.0
+        self.order.picking_ids.move_ids.quantity = 1.0
         self.order.picking_ids.button_validate()
 
         self.assertEqual(self.order.order_line.qty_delivered, 1.0)

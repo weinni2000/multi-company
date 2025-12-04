@@ -13,8 +13,8 @@ class SaleOrderLine(models.Model):
         check_company=False,
     )
 
-    def _prepare_procurement_values(self, group_id=False):
-        values = super()._prepare_procurement_values(group_id=group_id)
+    def _prepare_procurement_values(self):
+        values = super()._prepare_procurement_values()
         # Procurements must be created in warehouse company
         if self.order_id.warehouse_id:
             values["company_id"] = self.order_id.warehouse_id.company_id
